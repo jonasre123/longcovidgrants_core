@@ -6,10 +6,6 @@ pd.options.mode.copy_on_write = True
 app_dir = Path(__file__).parent
 grants = pd.read_csv(app_dir / "LC_grants.csv", delimiter=",")
 
-# add coordinates as a list of lon, lat for maplibre
-
-grants["coordinates"] = grants[["lon","lat"]].values.tolist()
-
 # calculate the total of all grants
 grant_total = grants["Amnt_awa"].sum()
 
@@ -31,7 +27,28 @@ grant_areas = {
 grant_range = (grants["Amnt_awa"].min(),grants["Amnt_awa"].max())
 
 # maplibre specifications
+from maplibre import (
+    Layer,
+    LayerType,
+    Map,
+    MapOptions,
+    output_maplibregl,
+    render_maplibregl,
+)
+from maplibre.basemaps import Carto
+from maplibre.controls import (
+    Marker,
+    MarkerOptions,
+    NavigationControl,
+    Popup,
+    PopupOptions,
+)
+from maplibre.sources import GeoJSONSource
+from maplibre.utils import GeometryType, df_to_geojson
+
+
 BOUNDS = (-8.92242886, 43.30508298, 13.76496714, 59.87668996)
+
 # set color definitions for map markers
 def get_color(grant_type: str) -> str:
     color = "darkblue"

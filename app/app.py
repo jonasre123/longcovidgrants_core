@@ -29,14 +29,13 @@ from shinywidgets import render_widget, output_widget, render_plotly
 from shinyswatch import theme
 
 # Load data and compute static values
-from shared import app_dir, grants, grant_total, grant_areas, grant_range, get_color, BOUNDS
+from shared import app_dir, grants, grant_total, grant_areas, grant_range, BOUNDS, get_color
 
 # create the list for subtypes filter
 # create list of subtypes based on filter types
 grant_subtypes = list(grants["Subtype"].dropna().unique())
 grant_subtypes.append("All")
 grant_subtypes.sort()
-
 
 ui.tags.style(".navbar.navbar-static-top { background:#78c2ad; }")
 
@@ -173,7 +172,7 @@ app_ui = ui.page_sidebar(
 
         # Navpanel Map        
         ui.nav_panel("Map", 
-                     "Panel C content"),
+                     output_maplibregl("maplibre", height=600)),
         
         ui.nav_panel("Data Source", 
                      "Panel C content"),
@@ -184,6 +183,7 @@ app_ui = ui.page_sidebar(
     title="Long Covid Grants",
     fillable=True,
     theme=theme.minty,
+    
 )
 
                     
@@ -260,9 +260,9 @@ def server(input, output, session):
 
 
     # functions for tab "charts"
-    '''@render_widget
+    @render_widget
     def fig_grants_per_year():
-        fig = px.histogram(filtered_grants(), y="Year_awa",color="Data_source",
+        fig = px.histogram(data_frame=filtered_grants(), y="Year_awa",color="Data_source",
                             labels={
                             "Year_awa": "Year awarded",
                             "Data_source":"Data source"
@@ -270,7 +270,83 @@ def server(input, output, session):
                             color_discrete_sequence=["#005344","#78c2ad","#DE4712"])
         fig.update_layout(bargap=0.2)
         fig.update_yaxes(dtick=1)
-        return fig'''
+        return fig
+
+    #Function for buildung Maplibre Map
+    lc_map = grants[grants['lat'].notna()]
+    lc_map["coordinates"] = lc_map[["lon","lat"]].values.tolist()
+    
+    geojson = df_to_geojson(
+        lc_map,
+        "coordinates",
+        GeometryType.POINT,
+        properties=["Title", "Amnt_awa", "Type"],
+    )
+
+    lc_circles = Layer(
+        type=LayerType.CIRCLE,
+        source=GeoJSONSource(data=geojson),
+        paint={
+            "circle-color": [
+                "match",
+                ["get", "Type"],
+                'Social care',
+                '#292f56',
+                'Psychological',
+                '#21416d',
+                'Medical', 
+                '#005483',
+                'Arts',
+                '#006794',
+                'Awareness',
+                '#007a9a',
+                'Advice',
+                '#008da1',
+                'Communication',
+                '#00a1a4',
+                'Wellbeing',
+                '#00b5a3',
+                'Social research',
+                '#00ca9a',
+                'Core funding',
+                '#36dc8d',
+                'Rehabilitation',
+                '#76ec7e',
+                'Epidemiology',
+                '#acfa70',
+            ],
+            "circle_radius": 10,
+            "circle-opacity": 0.3,
+        },
+    )
+
+    map_options = MapOptions(
+        style=Carto.POSITRON,
+        bounds=BOUNDS,
+        fit_bounds_options={"padding": 20},
+        hash=True,
+    )
+
+    popup_options = PopupOptions(close_button=False)
+    def create_map() -> Map:
+        m = Map(map_options)
+        m.add_control(NavigationControl())
+        m.add_layer(lc_circles)
+        for _, r in lc_map.iterrows():
+            marker = Marker(
+                lng_lat=list(r["coordinates"]),
+                options=MarkerOptions(color=get_color(r["Type"])),
+                popup=Popup(
+                    text="Grant type: "+ r["Type"]+ "<br>" +" Title: "+r["Title"] + "<br>" + " Amount awarded (GBP): "+ str(r["Amnt_awa"]),
+                    options=popup_options,
+                ),
+            )
+            m.add_marker(marker)
+        return m
+    
+    @render_maplibregl
+    def maplibre():
+        return create_map()
 
 
     # Function building filtered dataframe
