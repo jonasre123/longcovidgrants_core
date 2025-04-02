@@ -4,7 +4,7 @@ import pandas as pd
 pd.options.mode.copy_on_write = True
 
 app_dir = Path(__file__).parent
-grants = pd.read_csv(app_dir / "LC_grants.csv", delimiter=",")
+grants = pd.read_csv( app_dir / "LC_grants.csv", delimiter=",")
 
 # calculate the total of all grants
 grant_total = grants["Amnt_awa"].sum()
@@ -78,4 +78,3 @@ def get_color(grant_type: str) -> str:
         color = '#acfa70'
     
     return color
-

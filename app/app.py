@@ -118,21 +118,44 @@ app_ui = ui.page_sidebar(
 # Charts tab
         ui.nav_panel("Charts", 
                      ui.navset_card_pill(
-                          ui.nav_panel("Grants awarded per year", 
+                          ui.nav_panel("Grants awarded per year",
+                                       
+                                        
                                        ui.layout_column_wrap(
                                            ui.card("For NIHR and UKCDR data, the start year of funding was substituted in place of the award year.",
-                                                   output_widget("fig_grants_per_year")),
-                                           ui.card("Sum (GBP) of grants awarded per year"),
-                                           width=1/1),),
+                                                   output_widget("fig_grants_per_year"),
+                                                   full_screen=True,
+                                                   min_height="350px",
+                                                   fill=True
+                                                   ),
+                                           ui.card("Sum (GBP) of grants awarded per year",
+                                                   output_widget("fig_gbp_per_year"),
+                                                   full_screen=True,
+                                                   min_height="350px",
+                                                   fill=False
+                                                   ),
+                                           width=1/2),),
                           ui.nav_panel("Grant types and subtypes", 
                                        ui.layout_column_wrap(
-                                           ui.card("Grant types"),
-                                           ui.card("Grant subtypes, where available"),
-                                           width=1/1),),
+                                           ui.card("Grant types",
+                                                   output_widget("fig_grant_types"),
+                                                   full_screen=True,
+                                                   min_height="350px",
+                                                   fill=True),
+                                           ui.card("Grant subtypes, where available",
+                                                   output_widget("fig_grant_subtypes"),
+                                                   full_screen=True,
+                                                   min_height="350px",
+                                                   fill=True),
+                                           width=1/2),),
                           ui.nav_panel("Organisation age and latest income", 
                                        ui.layout_column_wrap(
                                            ui.card("Grants awarded by organisation age & latest income,"
-                                           "This information is only available for GrantNav data"),
+                                           "This information is only available for GrantNav data",
+                                           output_widget("fig_awa_orgtype"),
+                                           full_screen=True, 
+                                           min_height="400px",
+                                           fill=True),
                                            width=1/1)),
 
 
@@ -262,7 +285,7 @@ def server(input, output, session):
     # functions for tab "charts"
     @render_widget
     def fig_grants_per_year():
-        fig = px.histogram(data_frame=filtered_grants(), y="Year_awa",color="Data_source",
+        fig = px.histogram(data_frame=filtered_grants().dropna(subset="Year_awa"), y="Year_awa",color="Data_source",
                             labels={
                             "Year_awa": "Year awarded",
                             "Data_source":"Data source"
@@ -271,8 +294,58 @@ def server(input, output, session):
         fig.update_layout(bargap=0.2)
         fig.update_yaxes(dtick=1)
         return fig
+    
+    @render_widget
+    def fig_gbp_per_year():
+        fig = px.histogram(filtered_grants(), y="Amnt_awa", x="Year_awa",color="Type",
+                            labels={
+                            "Year_awa": "Year awarded",
+                            "Amnt_awa":"Amount awarded"
+                            }, 
+                            color_discrete_sequence=["#727272","#005344","#78c2ad","#dc8689","#cdcc61"])
+        fig.update_xaxes(dtick=1)
+        return fig
+    
+    @render_widget
+    def fig_grant_types():
+        fig = px.histogram(filtered_grants(), 
+                    y="Type", 
+                    color="Data_source",
+                    labels={
+                            "Data_source":"Data source"
+                            },
+                    color_discrete_sequence=["#005344","#78c2ad","#DE4712"])
+        return fig
+    
+    @render_widget
+    def fig_grant_subtypes():                    
+        data = filtered_grants()[["Subtype","Data_source","Type"]].dropna()
+        fig = px.histogram(data, 
+                        y="Subtype", 
+                        color="Type",
+                        labels={
+                                "Data_source":"Data source"
+                                },
+                        color_discrete_sequence=["#727272","#005344","#78c2ad","#dc8689","#cdcc61"])
+        return fig
+    
+    @render_widget
+    def fig_awa_orgtype():                            
+        datainput = filtered_grants()[["Organisation_name","Org_age","Amnt_awa","Recipient_income_latest","Type"]].dropna()
+        fig = px.scatter(datainput, x="Org_age", y="Amnt_awa", 
+            size="Recipient_income_latest",
+            labels = {"Org_age": "Organisation age",
+                    "Amnt_awa":"Amount awarded (GBP)"},
+            hover_name="Organisation_name", size_max=60,
+            color_discrete_sequence=["#005344"])
+        
+        return fig
+
 
     #Function for buildung Maplibre Map
+    
+
+
     lc_map = grants[grants['lat'].notna()]
     lc_map["coordinates"] = lc_map[["lon","lat"]].values.tolist()
     
@@ -395,7 +468,7 @@ def server(input, output, session):
                                         "Recipient_orgtype",
                                         "lon",
                                         "lat",
-                                        #"coordinates"
+                                        "coordinates"
                                         ]])
 
     @reactive.effect
